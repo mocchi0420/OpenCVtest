@@ -29,16 +29,19 @@ def imread_cutting_bg(src):
     return img
 
 # 減色処理
-def reduce_color(img):
-    # img_src = cv2.imread('./image/karasu.jpg')
+def reduce_color(img, k=16):
     Z = img.reshape((-1,4))
 
     # float32に変換
     Z = np.float32(Z)
 
-    # K-Means法
+    # K-Means法(基準値の指定)
     criteria = (cv2.TERM_CRITERIA_EPS, 10, 2.0)
-    K = 64
+
+    # 色数の指定(重要)
+    K = k
+
+    # K-Means法
     ret,label,center=cv2.kmeans(Z,
                                 K,
                                 None,
@@ -52,6 +55,7 @@ def reduce_color(img):
     img_dst = res.reshape((img.shape))
     return img_dst
 
+# 画像中の2*2ピクセルをそれら4ピクセルの平均値で埋める処理
 def covert_to_dot_2by2(base):
     img = base
     for i in range(len(img)//2 - 1):
@@ -69,6 +73,7 @@ def covert_to_dot_2by2(base):
                     img.itemset((i*2 + dx, j*2 + dy, 3), a_val)
     return img
 
+# 画像中の3*3ピクセルをそれら9ピクセルの平均値で埋める処理
 def covert_to_dot_3by3(base):
     img = base
     for i in range(len(img)//3 - 1):
@@ -98,15 +103,12 @@ def covert_to_dot_3by3(base):
                     img.itemset((i*3 + dx, j*3 + dy, 3), a_val)
     return img
 
+# α値を無視して画像中の3*3ピクセルをそれら9ピクセルの平均値で埋める処理(現在使用してない)
 def covert_to_dot_3by3_without_alpha(base):
     img = base
 
     for i in range(len(img)//3 - 1):
         for j in range(len(img[0])//3 - 1):
-            #val = (img.item(i*3, j*3) + img.item(i*3 + 1, j*3) + img.item(i*3 + 2, j*3)
-            #        +img.item(i*3, j*3 + 1) + img.item(i*3 + 1, j*3 + 1) + img.item(i*3 + 2, j*3 + 1)
-            #        +img.item(i*3, j*3 + 2) + img.item(i*3 + 1, j*3 + 2) + img.item(i*3 + 2, j*3 + 2)
-            #        )//9
             arr = []
             for dx in range(3):
                 for dy in range(3):            
@@ -114,10 +116,6 @@ def covert_to_dot_3by3_without_alpha(base):
                         arr.append(255)
                     else:
                         arr.append(0)
-
-            #arr = [img.item(i*3, j*3), img.item(i*3 + 1, j*3), img.item(i*3 + 2, j*3),
-            #         img.item(i*3, j*3 + 1),img.item(i*3 + 1, j*3 + 1),img.item(i*3 + 2, j*3 + 1),
-            #         img.item(i*3, j*3 + 2),img.item(i*3 + 1, j*3 + 2),img.item(i*3 + 2, j*3 + 2)]
 
             if(len([i for i in arr if (i == 255)]) >= 3):
                 val = 255
@@ -127,13 +125,9 @@ def covert_to_dot_3by3_without_alpha(base):
             for dx in range(3):
                 for dy in range(3):
                     img.itemset((i*3 + dx, j*3 + dy), val)
-                    #if(val > 200):
-                    #    img.itemset((i*3 + dx, j*3 + dy), 255)
-                    #else:
-                    #    img.itemset((i*3 + dx, j*3 + dy), 0)
     return img
 
-
+# 画像の外枠を取得する関数その1
 def extract_edge(img):
     # 白い部分を膨張させる.
     dilated = cv2.dilate(img, np.ones((3,3),np.uint8), iterations=1)
@@ -146,6 +140,7 @@ def extract_edge(img):
 
     return contour
 
+# 画像の外枠を取得する関数その2
 def extract_edge002(color):
     tmp = color
     for i in range(len(tmp)):
@@ -155,46 +150,57 @@ def extract_edge002(color):
                 tmp.itemset((i,j,1), 255)
                 tmp.itemset((i,j,2), 255)
                 #erosion.itemset((i,j), 255)
-    cv2.imwrite("p0.png", tmp)
     gry = cv2.fastNlMeansDenoising(
         cv2.cvtColor(tmp, cv2.COLOR_BGR2GRAY), h=30)
-    print(gry)
 
     _,bin_img = cv2.threshold(gry,150,255,cv2.THRESH_BINARY)
     res_img = np.zeros(bin_img.shape,np.uint8)
-    cv2.imwrite("p1.png", bin_img)
-    #cv2.imwrite("gray.png", gry)
-    '''
-    # カーネルサイズの設定
-    kernel3 = np.ones((3, 3), np.uint8)
-    # [1] 画像のグレースケール化とノイズ除去
-    gray = cv2.fastNlMeansDenoising(
-        cv2.cvtColor(color, cv2.COLOR_BGR2GRAY), h=30)
-    cv2.imwrite("gray.png", gray)
-    # [2] dilate -> diff で線抽出
-    dilation = cv2.dilate(gray, kernel3, iterations=1)
-    diff = cv2.subtract(dilation, gray)
-    diff_inv = 255 - diff
-    # [3] 線を単色 -> 2値に
-    _, edge = cv2.threshold(diff_inv, 230, 255, cv2.THRESH_BINARY)
-    # [4] 線画とモノクロ2値を重ねる
-    edge = cv2.cvtColor(edge, cv2.COLOR_GRAY2BGR)
 
-    #img = cv2.bitwise_and(color, edge)
-    '''
+    kernel = np.ones((3,3),np.uint8)
+    erosion = cv2.erode(bin_img, kernel,iterations = 1)
+    tmp_bin = copy.copy(bin_img)
+    for i in range(len(tmp_bin)):
+        for j in range(len(tmp_bin[0])):
+            if(tmp_bin.item(i,j) == erosion.item(i,j)):
+                tmp_bin.itemset((i,j), 0)
+    tmp_bin = 255 - tmp_bin
     image, contours, hierarchy = cv2.findContours(gry, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     cv2.fillPoly(res_img,pts=[contours[-1]],color=(255,255,255))
     hoge = 255 - res_img
-    cv2.imwrite("p2.png", hoge)
+
+    new_edge = copy.copy(hoge)
+    for i in range(len(gry)):
+        for j in range(len(gry[0])):
+            if(gry[i][j] < 10 and new_edge[i][j] == 0):
+                new_edge.itemset((i,j),255)
+
     kernel = np.ones((3,3),np.uint8)
-    dilation = cv2.dilate(hoge, kernel,iterations = 3)
+    dilation = cv2.erode(new_edge, kernel,iterations = 1)
+    dilation = cv2.dilate(dilation, kernel,iterations = 4)
 
-    for i in range(len(hoge)):
-        for j in range(len(hoge[0])):
-            if(hoge.item(i,j) == dilation.item(i,j)):
-                hoge.itemset((i,j), 255)
+    for i in range(len(new_edge)):
+        for j in range(len(new_edge[0])):
+            if(new_edge.item(i,j) == dilation.item(i,j)):
+                new_edge.itemset((i,j), 255)
 
-    return hoge
+    #new_edge = blend(new_edge,tmp_bin, new_edge)
+    return new_edge
+
+def extract_edge003(color):
+    tmp = color
+    for i in range(len(tmp)):
+        for j in range(len(tmp[0])):
+            if(tmp.item(i,j,3) < 255 and tmp.item(i,j,3) > 130):
+                tmp.itemset((i,j,0), 255)
+                tmp.itemset((i,j,1), 255)
+                tmp.itemset((i,j,2), 255)
+
+    gry = cv2.fastNlMeansDenoising(
+        cv2.cvtColor(tmp, cv2.COLOR_BGR2GRAY), h=30)
+
+    _,bin_img = cv2.threshold(gry,150,255,cv2.THRESH_BINARY)
+    return 255 - bin_img
+
 
 # 漫画化フィルタ
 def manga_filter(src):
@@ -246,7 +252,6 @@ def old_reduce(target_img):
     edge_alpha = cv2.resize(img["edge_alpha"], size, interpolation = cv2.INTER_NEAREST)
 
     result = blend(no_edge, edge_color, 255-edge_alpha)
-    cv2.imwrite("result.png", result)
     return result
 
 def skeletonize(edge):
@@ -288,34 +293,23 @@ def blend(img1, img2, mask):
 def main():
     size = (72,72)
     # 入力画像を取得
-    img = cv2.imread("test.png", cv2.IMREAD_UNCHANGED)
-    pre = cv2.resize(img, size, interpolation = cv2.INTER_LANCZOS4) 
-    cv2.imwrite("pre001.png", pre)
-
     img = imread_cutting_bg("test.png")
     pre = cv2.resize(img, size, interpolation = cv2.INTER_LANCZOS4) 
-    cv2.imwrite("pre002.png", pre)
     # 旧処理
     # hoge = old_reduce(img)
 
     # 枠線出す
     edge = extract_edge002(img)
-    #gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    #edge = extract_edge(gray)
-    #edge = covert_to_dot_3by3_without_alpha(edge)
     edge = cv2.resize(edge, size, interpolation = cv2.INTER_LANCZOS4) 
-    cv2.imwrite("edge.png", edge)
 
     # 画像減色
     img = reduce_color(img)
-    # cv2.imwrite("hoge.png", img)
 
     # 画像の色を3*3で同色変換
     img = covert_to_dot_3by3(img)
 
     size = (72,72)
-    result = cv2.resize(img, size, interpolation = cv2.INTER_LANCZOS4) 
-    cv2.imwrite("hoge.png", result)
+    result = reduce_color(cv2.resize(img, size, interpolation = cv2.INTER_LANCZOS4))
 
     new_edge = copy.copy(result)
     for i in range(len(edge)):
@@ -324,7 +318,7 @@ def main():
                 new_edge.itemset((i,j,0),0)
                 new_edge.itemset((i,j,1),0)
                 new_edge.itemset((i,j,2),0)
-                new_edge.itemset((i,j,3),255)
+                new_edge.itemset((i,j,3),210)
             else:
                 new_edge.itemset((i,j,0),255)
                 new_edge.itemset((i,j,1),255)
@@ -332,10 +326,7 @@ def main():
                 new_edge.itemset((i,j,3),0)
 
     fuga = blend(result, new_edge, 255-edge)
-
     cv2.imwrite("fuga.png", fuga)
-
-    old_reduce(result)
 
 if __name__ == '__main__':
     main()
