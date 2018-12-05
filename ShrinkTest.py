@@ -335,6 +335,7 @@ def manga_filter(src):
         "edge_alpha": new_edge,
     }
 
+# 以前の画像縮小アルゴリズム
 def old_reduce(target_img):
     img = reduce_color(target_img)
 
@@ -389,30 +390,9 @@ def blend(img1, img2, mask):
     masked2[mask < 255] = 0
     return cv2.bitwise_or(masked1, masked2)
 
-def main():
-    size = (108,108)
-    # 入力画像を取得
-    img = imread_cutting_bg("test.png")
-    pre = cv2.resize(img, size, interpolation = cv2.INTER_LANCZOS4) 
-    # 旧処理
-    # hoge = old_reduce(img)
-
-    # 枠線出す
-    edge = extract_edge002(img)
-    edge = cv2.resize(edge, size, interpolation = cv2.INTER_LANCZOS4) 
-
-    # 画像減色
-    img = reduce_color(img, 64)
-
-    # 画像の色を3*3で同色変換
-    #img = covert_to_dot_3by3_with_featuring(img)
-    img = covert_to_dot_2by2_with_featuring(img)
-    cv2.imwrite("tes.png", img)
-
-    result = reduce_color(cv2.resize(img, size, interpolation = cv2.INTER_LANCZOS4), 64)
-    cv2.imwrite("result.png", result)
-
-    new_edge = copy.copy(result)
+# 外枠を作って画像に当てはめるよ
+def adjust_edge(target_img, edge):
+    new_edge = copy.copy(target_img)
     for i in range(len(edge)):
         for j in range(len(edge[0])):
             if(edge[i][j] == 0):
@@ -426,8 +406,32 @@ def main():
                 new_edge.itemset((i,j,2),255)
                 new_edge.itemset((i,j,3),0)
 
-    fuga = blend(result, new_edge, 255-edge)
-    cv2.imwrite("fuga.png", fuga)
+    ret = blend(target_img, new_edge, 255-edge)
+    return ret
+
+# 一旦完成したチェック用縮小関数
+def shrink_target(target_path, return_size, return_color, return_path):
+    size = return_size
+    base_size =(size[0]*3, size[1]*3) 
+    color_num = return_color
+
+    # 一旦画像をそのまま圧縮
+    img = imread_cutting_bg(target_path)
+    img = cv2.resize(img, base_size, interpolation = cv2.INTER_LANCZOS4)
+
+    # 入力画像を取得して背景の透過部分をそぎ落としつつ減色処理
+    img = reduce_color(img, color_num)
+
+    # 画像の色を3*3で同色変換
+    img = covert_to_dot_3by3_with_featuring(img)
+
+    result = reduce_color(cv2.resize(img, size, interpolation = cv2.INTER_LANCZOS4), color_num)
+    cv2.imwrite(return_path+"result.png", result)
+
+
+def main():
+    shrink_target("test.png", (84,84), 64, "./")
+
 
 if __name__ == '__main__':
     main()
