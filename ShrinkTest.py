@@ -127,6 +127,105 @@ def covert_to_dot_3by3_without_alpha(base):
                     img.itemset((i*3 + dx, j*3 + dy), val)
     return img
 
+# 画像中の2*2または3*3ピクセルをそれら9ピクセルの特徴値の平均で埋める処理
+# ※登場する値の回数で重み付けをする形式。一度しか出てこない色は基本無視する。
+def get_unique_list(mylist):
+    ret = []
+    for idx in range(len(mylist)):
+        if(mylist.count(mylist[idx]) > 1):
+            ret.append(mylist[idx])
+    return ret
+
+def covert_to_dot_2by2_with_featuring(base):
+    img = base
+
+    for i in range(len(img)//2 - 1):
+        for j in range(len(img[0])//2 - 1):
+            arr = []
+            for dx in range(2):
+                for dy in range(2):
+                    arr.append(img[i*2+dx][j*2+dy].tolist())
+
+            color_list = get_unique_list(arr)
+
+            r_val, g_val, b_val, a_val = 0,0,0,0
+            if(len(color_list) == 0):
+                for idx in range(len(arr)):
+                    r_val += arr[idx][0]
+                    g_val += arr[idx][1]
+                    b_val += arr[idx][2]
+                    a_val += arr[idx][3]
+
+                r_val /= len(arr)
+                g_val /= len(arr)
+                b_val /= len(arr)
+                a_val /= len(arr)
+            elif(len(color_list) > 1):
+                for idx in range(len(color_list)):
+                    r_val += color_list[idx][0]
+                    g_val += color_list[idx][1]
+                    b_val += color_list[idx][2]
+                    a_val += color_list[idx][3]
+                
+                r_val /= len(color_list)
+                g_val /= len(color_list)
+                b_val /= len(color_list)
+                a_val /= len(color_list)
+
+            for dx in range(2):
+                for dy in range(2):
+                    img.itemset((i*2 + dx, j*2 + dy, 0), int(r_val))
+                    img.itemset((i*2 + dx, j*2 + dy, 1), int(g_val))
+                    img.itemset((i*2 + dx, j*2 + dy, 2), int(b_val))
+                    img.itemset((i*2 + dx, j*2 + dy, 3), int(a_val))
+    return img
+
+def covert_to_dot_3by3_with_featuring(base):
+    img = base
+
+    for i in range(len(img)//3 - 1):
+        for j in range(len(img[0])//3 - 1):
+            arr = []
+            for dx in range(3):
+                for dy in range(3):
+                    arr.append(img[i*3+dx][j*3+dy].tolist())
+
+            color_list = get_unique_list(arr)
+
+            r_val, g_val, b_val, a_val = 0,0,0,0
+            if(len(color_list) == 0):
+                for idx in range(len(arr)):
+                    r_val += arr[idx][0]
+                    g_val += arr[idx][1]
+                    b_val += arr[idx][2]
+                    a_val += arr[idx][3]
+
+                r_val /= len(arr)
+                g_val /= len(arr)
+                b_val /= len(arr)
+                a_val /= len(arr)
+            elif(len(color_list) > 1):
+                for idx in range(len(color_list)):
+                    r_val += color_list[idx][0]
+                    g_val += color_list[idx][1]
+                    b_val += color_list[idx][2]
+                    a_val += color_list[idx][3]
+                
+                r_val /= len(color_list)
+                g_val /= len(color_list)
+                b_val /= len(color_list)
+                a_val /= len(color_list)
+
+            for dx in range(3):
+                for dy in range(3):
+                    img.itemset((i*3 + dx, j*3 + dy, 0), int(r_val))
+                    img.itemset((i*3 + dx, j*3 + dy, 1), int(g_val))
+                    img.itemset((i*3 + dx, j*3 + dy, 2), int(b_val))
+                    img.itemset((i*3 + dx, j*3 + dy, 3), int(a_val))
+    return img
+
+
+
 # 画像の外枠を取得する関数その1
 def extract_edge(img):
     # 白い部分を膨張させる.
@@ -291,7 +390,7 @@ def blend(img1, img2, mask):
     return cv2.bitwise_or(masked1, masked2)
 
 def main():
-    size = (72,72)
+    size = (108,108)
     # 入力画像を取得
     img = imread_cutting_bg("test.png")
     pre = cv2.resize(img, size, interpolation = cv2.INTER_LANCZOS4) 
@@ -303,13 +402,15 @@ def main():
     edge = cv2.resize(edge, size, interpolation = cv2.INTER_LANCZOS4) 
 
     # 画像減色
-    img = reduce_color(img)
+    img = reduce_color(img, 64)
 
     # 画像の色を3*3で同色変換
-    img = covert_to_dot_3by3(img)
+    #img = covert_to_dot_3by3_with_featuring(img)
+    img = covert_to_dot_2by2_with_featuring(img)
+    cv2.imwrite("tes.png", img)
 
-    size = (72,72)
-    result = reduce_color(cv2.resize(img, size, interpolation = cv2.INTER_LANCZOS4))
+    result = reduce_color(cv2.resize(img, size, interpolation = cv2.INTER_LANCZOS4), 64)
+    cv2.imwrite("result.png", result)
 
     new_edge = copy.copy(result)
     for i in range(len(edge)):
