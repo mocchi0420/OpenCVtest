@@ -3,6 +3,8 @@ import cv2
 import numpy as np
 import math
 import copy
+import glob
+import os
 
 import warnings
 warnings.filterwarnings('ignore')
@@ -430,8 +432,21 @@ def shrink_target(target_path, return_size, return_color, return_path):
 
 
 def main():
-    shrink_target("test.png", (84,84), 64, "./")
+    # shrink_target("test.png", (84,84), 64, "./")
+    dir_list = os.listdir("./before")
 
+    for dir in dir_list:
+        before_dir = "./before/"+dir
+        after_dir = "./after/"+dir
+
+        if not os.path.exists(after_dir):
+            os.makedirs(after_dir)
+
+        file_list = os.listdir(before_dir)
+        for file_name in file_list:
+            before_path = before_dir + "/" + file_name
+            after_path = after_dir + "/" + file_name
+            shrink_target(before_path, (84,84), 64, after_path)
 
 if __name__ == '__main__':
     main()
