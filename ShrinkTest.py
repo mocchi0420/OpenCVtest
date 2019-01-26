@@ -5,6 +5,7 @@ import math
 import copy
 import glob
 import os
+import sys
 
 import warnings
 warnings.filterwarnings('ignore')
@@ -412,7 +413,7 @@ def adjust_edge(target_img, edge):
     return ret
 
 # 一旦完成したチェック用縮小関数
-def shrink_target(target_path, return_size, return_color, return_path):
+def shrink_target(target_path, return_path, return_size, return_color):
     size = return_size
     base_size =(size[0]*3, size[1]*3) 
     color_num = return_color
@@ -428,16 +429,38 @@ def shrink_target(target_path, return_size, return_color, return_path):
     img = covert_to_dot_3by3_with_featuring(img)
 
     result = reduce_color(cv2.resize(img, size, interpolation = cv2.INTER_LANCZOS4), color_num)
-    cv2.imwrite(return_path+"result.png", result)
+    cv2.imwrite(return_path, result)
 
 
 def main():
+    args = sys.argv
+    print(args)
+    if len(args) > 1:
+        before_path = args[1]
+    else:
+        before_path = "./before"
+
+    if len(args) > 2:
+        after_path = args[2]
+    else:
+        after_path = "./after"
+
+    if len(args) > 3:
+        pic_size = (int(args[3]),int(args[3]))
+    else:
+        pic_size = (84,84)
+
+    if len(args) > 4:
+        color_num = int(args[4])
+    else:
+        color_num = 64
+
     # shrink_target("test.png", (84,84), 64, "./")
-    dir_list = os.listdir("./before")
+    dir_list = os.listdir(before_path)
 
     for dir in dir_list:
-        before_dir = "./before/"+dir
-        after_dir = "./after/"+dir
+        before_dir = before_path + '/' + dir
+        after_dir = after_path + '/' + dir
 
         if not os.path.exists(after_dir):
             os.makedirs(after_dir)
@@ -446,7 +469,7 @@ def main():
         for file_name in file_list:
             before_path = before_dir + "/" + file_name
             after_path = after_dir + "/" + file_name
-            shrink_target(before_path, (84,84), 64, after_path)
+            shrink_target(before_path, after_path, pic_size, color_num)
 
 if __name__ == '__main__':
     main()
